@@ -1,23 +1,39 @@
-#Below ascii art from here : https://www.asciiart.eu/people/body-parts/hand-gestures
-rock = '''
+from enum import Enum
+import random
+from art import text2art
+import sys
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+logger = logging.getLogger(__name__)
+
+# Enum for the choices
+class Choice(Enum):
+    ROCK = 0
+    PAPER = 1
+    SCISSORS = 2
+
+    #Below ascii art from here : https://www.asciiart.eu/people/body-parts/hand-gestures
+    def ascii_art(self) -> str:
+        arts = {
+            Choice.ROCK: '''
     _______
 ---'   ____)
       (_____)
       (_____)
       (____)
 ---.__(___)
-'''
-
-paper = '''
+''',
+            Choice.PAPER: '''
     _______
 ---'   ____)____
           ______)
           _______)
          _______)
 ---.__________)
-'''
-
-scissors = '''
+''',
+            Choice.SCISSORS: '''
     _______
 ---'   ____)____
           ______)
@@ -25,53 +41,91 @@ scissors = '''
       (____)
 ---.__(___)
 '''
+        }
+        return arts[self]
 
-import random
-from art import *
-import sys
-game_over=False
-print(text2art("ROCK PAPER SCISSOR", font="cybermedium"))
-while not game_over:
-    lst = [rock,paper,scissors]
-    user_choice = input("What do you chose? Type 0 for Rock, 1 for Paper or 2 for Scissors. ")
-    if not user_choice.isdigit(): #to check if the user has provided any junk value and exit the code
-        print(text2art("Game Over"))
-        sys.exit('Invalid input, please select "0" for rock "1" for paper and "2" for "Scissors"')
-    else:
-        user_choice = int(user_choice)
-    random_choice = random.randint(0,2)
-    print('User Chose')
-    if user_choice>2:
-        print('Invalid input, please select "0" for rock "1" for paper and "2" for "Scissors"')
-        print(text2art("Game Over"))
-        game_over=True
-    else:
-        print(lst[user_choice])
-        print("Computer Chose")
-        print(lst[random_choice])
-        if user_choice == random_choice:
-          print("It's a tie")
-        elif user_choice == 0 and random_choice == 1:#paper beat rock
-          print("You lose")
-        elif user_choice == 0 and random_choice == 2:#rock beats scissors
-          print('You win')
-        elif user_choice == 1 and random_choice == 0:#paper beats rock
-          print('You win')
-        elif user_choice == 1 and random_choice == 2:#scissors beats paper
-          print('You lose')
-        elif user_choice==2 and random_choice==1:#scissors beats paper
-          print('You win')
-        elif user_choice==2 and random_choice==0:#rock beats scissors
-          print('You lose')
-        elif user_choice>2:
-          print("Invalid choice")
-        game_continue_choice = input('Do you want to continue:"Y" for Yes and "N" for No :')
-        if game_continue_choice.upper()=="N":
-            game_over=True
-            print(text2art("Game Over"))
-        elif game_continue_choice.upper()=='Y':
-            game_over=False
+class GameOver(Exception):
+    """Exception to signal game end."""
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+class InputProvider:
+    """Class to get user input; can be swapped/mocked for testing."""
+    def get_input(self, prompt: str) -> str:
+        return input(prompt).strip()
+
+class RockPaperScissorsGame:
+    def __init__(self, input_provider: InputProvider):
+        self.input_provider = input_provider
+        self.is_running = True
+
+    def run(self):
+        print(text2art("ROCK PAPER SCISSORS", font="cybermedium"))
+        try:
+            while self.is_running:
+                self.play_round()
+                self.ask_continue()
+        except GameOver as e:
+            logger.info(e.message)
+            print(text2art("GAME OVER"))
+        except KeyboardInterrupt:
+            logger.info("Game interrupted by user.")
+            print(text2art("GAME OVER"))
+
+    def play_round(self):
+        user_choice = self.get_user_choice()
+        comp_choice = self.get_computer_choice()
+
+        print("You chose:")
+        print(user_choice.ascii_art())
+        print("Computer chose:")
+        print(comp_choice.ascii_art())
+
+        result = self.determine_winner(user_choice, comp_choice)
+        print(result)
+
+    def get_user_choice(self) -> Choice:
+        while True:
+            response = self.input_provider.get_input(
+                "Choose [0] Rock, [1] Paper, [2] Scissors: "
+            )
+            if not response.isdigit():
+                print("Invalid input! Please enter 0, 1, or 2.")
+                continue
+            val = int(response)
+            if val in [choice.value for choice in Choice]:
+                return Choice(val)
+            print("Invalid choice! Please enter 0, 1, or 2.")
+
+    def get_computer_choice(self) -> Choice:
+        return Choice(random.randint(0, 2))
+
+    def determine_winner(self, user: Choice, comp: Choice) -> str:
+        if user == comp:
+            return "It's a tie!"
+        # Define winning cases for user
+        wins = {
+            Choice.ROCK: Choice.SCISSORS,
+            Choice.PAPER: Choice.ROCK,
+            Choice.SCISSORS: Choice.PAPER
+        }
+        if wins[user] == comp:
+            return "You win!"
         else:
-            print('Invalid Input! Please Type "Y" for Yes or "N" for NO')
-            print(text2art("Game Over"))
-            game_over=True
+            return "You lose!"
+
+    def ask_continue(self):
+        while True:
+            cont = self.input_provider.get_input('Play again? (Y/N): ').strip().upper()
+            if cont == 'N':
+                self.is_running = False
+                raise GameOver("Thanks for playing!")
+            elif cont == 'Y':
+                return
+            else:
+                print('Invalid input! Please enter "Y" or "N".')
+
+if __name__ == "__main__":
+    game = RockPaperScissorsGame(InputProvider())
+    game.run()
