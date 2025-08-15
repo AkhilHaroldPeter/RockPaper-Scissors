@@ -14,7 +14,6 @@ class Choice(Enum):
     PAPER = 1
     SCISSORS = 2
 
-    #Below ascii art from here : https://www.asciiart.eu/people/body-parts/hand-gestures
     def ascii_art(self) -> str:
         arts = {
             Choice.ROCK: '''
@@ -49,6 +48,8 @@ class GameOver(Exception):
     def __init__(self, message: str):
         super().__init__(message)
         self.message = message
+        
+        
 
 class InputProvider:
     """Class to get user input; can be swapped/mocked for testing."""
@@ -71,19 +72,57 @@ class RockPaperScissorsGame:
             print(text2art("GAME OVER"))
         except KeyboardInterrupt:
             logger.info("Game interrupted by user.")
-            print(text2art("GAME OVER"))
+            print(text2art("GAME OVER"))            
 
+    @staticmethod
+    def flip_ascii_art(art: str) -> str:
+        flip_map = str.maketrans({
+            '(': ')',
+            ')': '(',
+            '/': '\\',
+            '\\': '/',
+            '{': '}',
+            '}': '{',
+            '[': ']',
+            ']': '[',
+            '<': '>',
+            '>': '<',
+        })
+        lines = art.strip('\n').split('\n')
+        flipped_lines = []
+
+        max_width = max(len(line) for line in lines)
+
+        for line in lines:
+            # Pad line to the right to match width (so flipped lines align)
+            padded = line.ljust(max_width)
+            # Reverse and translate
+            flipped = padded[::-1].translate(flip_map)
+            flipped_lines.append(flipped)
+
+        return '\n'.join(flipped_lines)                
+            
     def play_round(self):
         user_choice = self.get_user_choice()
         comp_choice = self.get_computer_choice()
 
-        print("You chose:")
-        print(user_choice.ascii_art())
-        print("Computer chose:")
-        print(comp_choice.ascii_art())
+#         print("You chose:")
+#         print(user_choice.ascii_art())
+#         print("Computer chose:")
+#         print(comp_choice.ascii_art())
+
+#         result = self.determine_winner(user_choice, comp_choice)
+#         print(result)
+
+        comp_art_lines = comp_choice.ascii_art().strip('\n').split('\n')
+        user_art_lines = self.flip_ascii_art(user_choice.ascii_art()).strip('\n').split('\n')
+
+        print("\nComputer vs You:\n")
+        for comp_line, user_line in zip(comp_art_lines, user_art_lines):
+            print(f"{comp_line:<30}    {user_line}")
 
         result = self.determine_winner(user_choice, comp_choice)
-        print(result)
+        print("\n" + result + "\n")
 
     def get_user_choice(self) -> Choice:
         while True:
